@@ -1,6 +1,8 @@
 'use strict';
 
 const Boom = require('boom');
+const AWS = require('aws-sdk');
+const utils = require('./utils');
 
 const createLambdaAuthScheme = (
   authFun,
@@ -15,14 +17,19 @@ const createLambdaAuthScheme = (
   let identityHeader = 'authorization';
   return () => ({
     authenticate(request, reply) {
-      const event = {};
       const { req } = request.raw;
       const pathParams = {};
       Object.keys(request.params).forEach(key => {
         pathParams[key] = encodeURIComponent(request.params[key]);
       });
-      let event, handler;
-
+      const event = {
+        type: 'REQUEST',
+        path: request.path,
+        httpMethod: request.method.toUpperCase(),
+        headers: Object.assign(request.headers, utils.capitalizeKeys(request.headers)),
+        pathParameters: utils.nullIfEmpty(pathParams),
+        queryStringParameters: utils.nullIfEmpty(request.query),
+      };
       new AWS.Lambda().invoke({
         FunctionName: authFun,
         InvocationType: 'Event',
