@@ -10,6 +10,7 @@ const Hapi = require('hapi');
 const corsHeaders = require('hapi-cors-headers');
 const _ = require('lodash');
 const crypto = require('crypto');
+const AWS = require('aws-sdk');
 
 // Internal lib
 const debugLog = require('./debugLog');
@@ -883,7 +884,29 @@ class Offline {
   _configureAuthorization(endpoint, funName, method, epath, servicePath) {
     let authStrategyName = null;
     if (endpoint.authorizer) {
+      const authKey = `${funName}-${authFunctionName}-${method}-${epath}`;
+      const authSchemeName = `scheme-${authKey}`;
       let authFunctionName = endpoint.authorizer;
+      if (endpoint.authorizer.arn) {
+        const lambdaAuthScheme = createLambdaAuthScheme(
+          lambdaAuthFunction,
+          authorizerOptions,
+          funName,
+          epath,
+          this.options,
+          this.serverlessLog,
+          servicePath,
+          this.serverless
+        );
+        
+        authStrategyName = `strategy-${authKey}`;
+
+        // Set the auth scheme and strategy on the server
+        this.server.auth.scheme(authSchemeName, lambdaAuthScheme);
+        this.server.auth.strategy(authStrategyName, authSchemeName);
+
+        return authStrategyName;
+      }
       if (typeof authFunctionName === 'string' && authFunctionName.toUpperCase() === 'AWS_IAM') {
         this.serverlessLog('WARNING: Serverless Offline does not support the AWS_IAM authorization type');
 
