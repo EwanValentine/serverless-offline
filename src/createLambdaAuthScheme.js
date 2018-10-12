@@ -28,13 +28,12 @@ const createLambdaAuthScheme = (
         InvocationType: 'Event',
         Payload: JSON.stringify(event),
       }, (err, data) => {
-        if (err) {
-          // handle this
+        if (err) return reply(Boom.unauthorized('Unauthorised response from lambda'));
+        const { policy } = JSON.parse(data);
+        if (!policy.principalId) {
+          serverlessLog(`Authorization response did not include a principalId: (λ: ${authFunName})`, err);
+          return reply(Boom.forbidden('No principalId set on the Response'));
         }
-        const res = JSON.parse(data);
-        console.log(res);
-        // Neet to set actual response
-        // here...
         return reply.continue({ credentials: { user: policy.principalId, context: policy.context, usageIdentifierKey: policy.usageIdentifierKey } });
       });
     }
